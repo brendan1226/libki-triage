@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}libki-triage{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>libki-triage</h1>
+    <p class="tagline">Semantic triage for the <a href="https://github.com/Libki">Libki ecosystem</a>'s GitHub issues.</p>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <p>
+      <a href="https://github.com/brendan1226/libki-triage">Source</a>
+      · v0.0.1
+      · Harvest + status live · Search + Claude verdicts coming soon
+    </p>
+  </footer>
+</body>
+</html>

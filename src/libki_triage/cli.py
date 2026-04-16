@@ -6,6 +6,9 @@ from .config import REPOS, settings
 from .db import connect, init_db
 from .harvest import harvest_repo
 
+DEFAULT_HOST = "0.0.0.0"
+DEFAULT_PORT = 8000
+
 app = typer.Typer(
     help="Semantic triage tool for the Libki ecosystem GitHub issues.",
     no_args_is_help=True,
@@ -73,6 +76,20 @@ def status() -> None:
             row["last_harvested_at"] or "never",
         )
     console.print(table)
+
+
+@app.command()
+def serve(
+    host: str = typer.Option(DEFAULT_HOST, "--host", help="Interface to bind to."),
+    port: int = typer.Option(DEFAULT_PORT, "--port", help="Port to listen on."),
+    reload: bool = typer.Option(False, "--reload", help="Enable auto-reload for development."),
+) -> None:
+    """Run the web status dashboard."""
+    import uvicorn
+
+    init_db(settings.db_path)
+    console.print(f"[cyan]libki-triage serving on http://{host}:{port}[/cyan]")
+    uvicorn.run("libki_triage.web:app", host=host, port=port, reload=reload)
 
 
 if __name__ == "__main__":

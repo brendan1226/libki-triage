@@ -24,7 +24,18 @@ git clone https://github.com/brendan1226/libki-triage.git
 cd libki-triage
 cp .env.example .env     # optionally add a GitHub token for higher rate limits
 docker compose build
+docker compose run --rm triage harvest     # populate the database
+docker compose up -d                        # start the status dashboard
+open http://localhost:8000                  # view it
+```
+
+The dashboard listens on `127.0.0.1:8000` by default (loopback only) so it's safe to run behind a reverse proxy like Caddy on a server.
+
+### One-shot CLI commands
+
+```bash
 docker compose run --rm triage harvest
+docker compose run --rm triage harvest --repo Libki/libki-server
 docker compose run --rm triage status
 ```
 
@@ -36,6 +47,7 @@ uv sync
 uv run libki-triage --help
 uv run libki-triage harvest
 uv run libki-triage status
+uv run libki-triage serve --reload        # web UI at http://localhost:8000
 uv run pytest
 ```
 
@@ -50,9 +62,27 @@ Environment variables (loaded from `.env` if present):
 
 ## Architecture
 
-- Python 3.12, `typer` for CLI, `httpx` for GitHub REST.
+- Python 3.12, `typer` for CLI, `httpx` for GitHub REST, `FastAPI` + `uvicorn` for the web dashboard.
 - SQLite for the issue store. Schema lives in [`src/libki_triage/db.py`](src/libki_triage/db.py).
 - Pagination via the `Link: rel="next"` header; idempotent upserts keyed on `(repo, number)` for issues and `github_id` for comments.
+- Jinja2 templates in [`src/libki_triage/templates/`](src/libki_triage/templates/), static assets in [`src/libki_triage/static/`](src/libki_triage/static/).
+
+## Deployment notes (DigitalOcean Droplet)
+
+Hosted at `https://libki-triage.gallagher-family-hub.com` (planned). Deployment pattern:
+
+1. Droplet with Docker + Docker Compose installed.
+2. Caddy as the public-facing reverse proxy, handling TLS via Let's Encrypt automatically.
+3. `libki-triage` container binds to `127.0.0.1:8000` (loopback only); Caddy proxies to it.
+4. Cron on the host runs `docker compose -f /opt/libki-triage/docker-compose.yml run --rm triage harvest` every few hours.
+
+Minimal `Caddyfile`:
+
+```
+libki-triage.gallagher-family-hub.com {
+    reverse_proxy localhost:8000
+}
+```
 
 ## License
 
