@@ -39,6 +39,11 @@ def harvest(
         console.print(
             f"  {counts['issues']} issues, {counts['prs']} PRs, {counts['comments']} comments"
         )
+        if counts.get("skipped_comments"):
+            console.print(
+                f"  [yellow]({counts['skipped_comments']} comments skipped — "
+                f"issue not yet in DB; next harvest will pick them up)[/yellow]"
+            )
 
     console.print("[green]Done.[/green]")
 

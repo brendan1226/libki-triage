@@ -37,6 +37,14 @@ def _paginate(client: httpx.Client, url: str, params: dict) -> Iterable[dict]:
         current_params = {}  # the `next` URL already carries pagination params
 
 
+def _issue_number_from_url(issue_url: str) -> int:
+    """Extract the issue number from a GitHub API issue URL.
+
+    Example: https://api.github.com/repos/Libki/libki-server/issues/123 -> 123
+    """
+    return int(issue_url.rsplit("/", 1)[-1])
+
+
 def upsert_repo(conn, owner: str, name: str, default_branch: str | None) -> int:
     conn.execute(
         """
@@ -52,7 +60,14 @@ def upsert_repo(conn, owner: str, name: str, default_branch: str | None) -> int:
     return row["id"]
 
 
-def upsert_issue(conn, repo_id: int, issue: dict, harvested_at: str) -> int:
+def _get_last_harvested_at(conn, repo_id: int) -> str | None:
+    row = conn.execute(
+        "SELECT last_harvested_at FROM repos WHERE id = ?", (repo_id,)
+    ).fetchone()
+    return row["last_harvested_at"] if row else None
+
+
+def upsert_issue(conn, repo_id: int, issue: dict, harvested_at: str) -> None:
     is_pr = 1 if "pull_request" in issue else 0
     labels = json.dumps([label["name"] for label in issue.get("labels", [])])
     conn.execute(
@@ -88,11 +103,14 @@ def upsert_issue(conn, repo_id: int, issue: dict, harvested_at: str) -> int:
             harvested_at,
         ),
     )
+
+
+def _find_issue_id(conn, repo_id: int, number: int) -> int | None:
     row = conn.execute(
         "SELECT id FROM issues WHERE repo_id = ? AND number = ?",
-        (repo_id, issue["number"]),
+        (repo_id, number),
     ).fetchone()
-    return row["id"]
+    return row["id"] if row else None
 
 
 def upsert_comment(conn, issue_id: int, comment: dict) -> None:
@@ -116,9 +134,16 @@ def upsert_comment(conn, issue_id: int, comment: dict) -> None:
 
 
 def harvest_repo(db_path: Path, owner: str, name: str, token: str | None) -> dict:
+    """Harvest issues, PRs, and comments for a single repo into the local DB.
+
+    Uses `since=<last_harvested_at>` for incremental runs: first run pulls
+    everything; subsequent runs only pull records updated since the previous
+    run. Comments are fetched via the repo-wide `/issues/comments` endpoint
+    in a single paginated call, not per-issue.
+    """
     init_db(db_path)
-    harvested_at = _utc_now_iso()
-    counts = {"issues": 0, "prs": 0, "comments": 0}
+    new_harvested_at = _utc_now_iso()
+    counts = {"issues": 0, "prs": 0, "comments": 0, "skipped_comments": 0}
 
     with _build_client(token) as client:
         repo_info = client.get(f"/repos/{owner}/{name}")
@@ -127,30 +152,47 @@ def harvest_repo(db_path: Path, owner: str, name: str, token: str | None) -> dic
 
         with connect(db_path) as conn:
             repo_id = upsert_repo(conn, owner, name, default_branch)
+            since = _get_last_harvested_at(conn, repo_id)
+
+            issue_params: dict = {"state": "all", "per_page": 100}
+            if since:
+                issue_params["since"] = since
 
             for issue in _paginate(
                 client,
                 f"/repos/{owner}/{name}/issues",
-                {"state": "all", "per_page": 100},
+                issue_params,
             ):
-                issue_id = upsert_issue(conn, repo_id, issue, harvested_at)
+                upsert_issue(conn, repo_id, issue, new_harvested_at)
                 if "pull_request" in issue:
                     counts["prs"] += 1
                 else:
                     counts["issues"] += 1
 
-                if issue.get("comments", 0) > 0:
-                    for comment in _paginate(
-                        client,
-                        f"/repos/{owner}/{name}/issues/{issue['number']}/comments",
-                        {"per_page": 100},
-                    ):
-                        upsert_comment(conn, issue_id, comment)
-                        counts["comments"] += 1
+            comment_params: dict = {"per_page": 100}
+            if since:
+                comment_params["since"] = since
+
+            for comment in _paginate(
+                client,
+                f"/repos/{owner}/{name}/issues/comments",
+                comment_params,
+            ):
+                issue_number = _issue_number_from_url(comment["issue_url"])
+                issue_id = _find_issue_id(conn, repo_id, issue_number)
+                if issue_id is None:
+                    # Comment for an issue not yet in the DB — can happen only
+                    # if the issue was created and commented on between our
+                    # issues-page fetch and our comments-page fetch. Next
+                    # harvest picks it up because its updated_at > since.
+                    counts["skipped_comments"] += 1
+                    continue
+                upsert_comment(conn, issue_id, comment)
+                counts["comments"] += 1
 
             conn.execute(
                 "UPDATE repos SET last_harvested_at = ? WHERE id = ?",
-                (harvested_at, repo_id),
+                (new_harvested_at, repo_id),
             )
 
     return counts
