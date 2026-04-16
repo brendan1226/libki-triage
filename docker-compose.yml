@@ -1,0 +1,7 @@
+services:
+  triage:
+    build: .
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
