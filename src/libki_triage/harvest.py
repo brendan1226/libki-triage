@@ -31,20 +31,28 @@ def _paginate(
     params: dict,
     on_page: Optional[Callable[[int, int], None]] = None,
 ) -> Iterable[dict]:
-    current_params = params
-    page = 0
-    while url:
+    """Paginate a GitHub REST listing.
+
+    Carries `per_page` and other query params across every page explicitly
+    instead of following the `Link: next` URL verbatim. The Link-follow
+    approach was dropping `per_page=100` on follow-up requests, falling
+    back to GitHub's default of 30/page and tripling the round trips.
+    """
+    current_params = dict(params)
+    current_params.setdefault("page", 1)
+    page = 1
+    while True:
         response = client.get(url, params=current_params)
         response.raise_for_status()
-        page += 1
         items = response.json()
         if on_page is not None:
             on_page(page, len(items))
         for item in items:
             yield item
-        next_link = response.links.get("next", {}).get("url")
-        url = next_link or ""
-        current_params = {}  # the `next` URL already carries pagination params
+        if "next" not in response.links:
+            break
+        page += 1
+        current_params["page"] = page
 
 
 def _page_logger(label: str) -> Callable[[int, int], None]:
