@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     )
 
     github_token: str | None = None
+    anthropic_api_key: str | None = None
     db_path: Path = Path("./data/libki-triage.db")
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    classification_model: str = "claude-opus-4-6"
 
 
 settings = Settings()

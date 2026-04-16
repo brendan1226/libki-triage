@@ -7,7 +7,9 @@ Instructions for AI agents and human contributors.
 - Python 3.12 (inside Docker; 3.11+ for local dev).
 - `typer` CLI, `httpx` for GitHub REST, `rich` for terminal output, `pydantic-settings` for config.
 - `FastAPI` + `uvicorn` for the web dashboard. Jinja2 templates.
-- SQLite single-file DB. Schema in [src/libki_triage/db.py](src/libki_triage/db.py).
+- SQLite single-file DB with `PRAGMA user_version` migrations. Schema in [src/libki_triage/db.py](src/libki_triage/db.py).
+- `fastembed` + `BAAI/bge-small-en-v1.5` (ONNX, CPU) for embeddings. `numpy` for cosine similarity.
+- `anthropic` SDK with `messages.parse()` + Pydantic for Claude-generated verdicts.
 - `uv` for dependency management.
 - Deployment: DigitalOcean Droplet, Docker Compose, Caddy reverse proxy (TLS via Let's Encrypt).
 

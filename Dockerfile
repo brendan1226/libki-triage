@@ -8,8 +8,13 @@ COPY src ./src
 
 RUN uv sync --no-dev --frozen
 
-ENV PATH="/app/.venv/bin:$PATH" \
-    LIBKI_TRIAGE_DB_PATH=/data/libki-triage.db
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Pre-download the fastembed model so first container run doesn't pay the
+# ~90 MB cold download. Model is baked into the image layer.
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')"
+
+ENV LIBKI_TRIAGE_DB_PATH=/data/libki-triage.db
 
 VOLUME /data
 EXPOSE 8000

@@ -97,5 +97,126 @@ def serve(
     uvicorn.run("libki_triage.web:app", host=host, port=port, reload=reload)
 
 
+@app.command()
+def embed(
+    batch_size: int = typer.Option(32, "--batch-size", help="Texts per embedding batch."),
+) -> None:
+    """Compute embeddings for issues whose title/body changed since the last run."""
+    from .embed import embed_pending
+
+    def on_progress(stage: str, payload) -> None:
+        if stage == "loading_model":
+            console.print(f"[cyan]Loading embedding model {payload}...[/cyan]")
+        elif stage == "embedding":
+            console.print(f"[cyan]Embedding {payload} issues...[/cyan]")
+
+    counts = embed_pending(
+        settings.db_path, settings.embedding_model, batch_size, on_progress=on_progress
+    )
+    console.print(
+        f"[green]Embedded {counts['embedded']} / {counts['total']}  "
+        f"(skipped {counts['skipped']} unchanged)[/green]"
+    )
+
+
+@app.command()
+def search(
+    query: str = typer.Argument(..., help="Problem description to search for."),
+    top_k: int = typer.Option(5, "--top-k", "-k", help="Number of matches to return."),
+    exclude_prs: bool = typer.Option(
+        False, "--exclude-prs", help="Return issues only, skip PRs."
+    ),
+) -> None:
+    """Rank harvested issues by semantic similarity to the query."""
+    from .search import NoEmbeddingsError, search as semantic_search
+
+    try:
+        results = semantic_search(
+            settings.db_path,
+            query,
+            settings.embedding_model,
+            top_k=top_k,
+            exclude_prs=exclude_prs,
+        )
+    except NoEmbeddingsError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+
+    table = Table(title=f"Top {len(results)} matches for: {query!r}")
+    table.add_column("Score", justify="right")
+    table.add_column("Repo")
+    table.add_column("#", justify="right")
+    table.add_column("State")
+    table.add_column("Title")
+
+    for r in results:
+        kind = " PR" if r["is_pull_request"] else ""
+        table.add_row(
+            f"{r['score']:.3f}",
+            f"{r['repo_owner']}/{r['repo_name']}",
+            str(r["number"]),
+            f"{r['state']}{kind}",
+            r["title"],
+        )
+    console.print(table)
+
+
+@app.command()
+def classify(
+    query: str = typer.Argument(..., help="Problem description to classify against."),
+    top_k: int = typer.Option(5, "--top-k", "-k", help="Number of matches to classify."),
+    exclude_prs: bool = typer.Option(
+        False, "--exclude-prs", help="Return issues only, skip PRs."
+    ),
+) -> None:
+    """Semantic search plus a Claude-generated verdict per match."""
+    from .classify import classify as run_classify
+    from .search import NoEmbeddingsError
+
+    if not settings.anthropic_api_key:
+        console.print(
+            "[red]LIBKI_TRIAGE_ANTHROPIC_API_KEY is not set.[/red] "
+            "Add it to .env or export it in your shell."
+        )
+        raise typer.Exit(code=1)
+
+    console.print(f"[cyan]Classifying top {top_k} matches with {settings.classification_model}...[/cyan]")
+    try:
+        results, verdicts = run_classify(
+            settings.db_path,
+            query,
+            settings.embedding_model,
+            settings.anthropic_api_key,
+            settings.classification_model,
+            top_k=top_k,
+            exclude_prs=exclude_prs,
+        )
+    except NoEmbeddingsError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+
+    if not results:
+        console.print("[yellow]No matches found.[/yellow]")
+        return
+
+    verdicts_by_idx = {i: v for i, v in enumerate(verdicts) if i < len(results)}
+    for i, r in enumerate(results):
+        console.print()
+        kind = "PR" if r["is_pull_request"] else "issue"
+        console.print(
+            f"[bold cyan]{r['repo_owner']}/{r['repo_name']}#{r['number']}[/bold cyan] "
+            f"[dim]({r['state']} {kind}, score {r['score']:.3f})[/dim]"
+        )
+        console.print(f"  [bold]{r['title']}[/bold]")
+        v = verdicts_by_idx.get(i)
+        if v is not None:
+            console.print(f"  Verdict:   [yellow]{v.verdict}[/yellow]")
+            console.print(f"  Why:       {v.rationale}")
+            console.print(f"  Suggested: {v.suggested_action}")
+        else:
+            console.print("  [dim](no verdict returned)[/dim]")
+        console.print(f"  {r['url']}")
+
+
 if __name__ == "__main__":
     app()

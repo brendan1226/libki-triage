@@ -1,6 +1,27 @@
 {% extends "base.html" %}
 
 {% block content %}
+<section class="search-form">
+  <h2>Ask a question</h2>
+  <form action="/search" method="get">
+    <input
+      type="text"
+      name="q"
+      placeholder='e.g. "patron can&#39;t print multiple copies from word"'
+      autofocus
+      required
+    />
+    <button type="submit">Search</button>
+  </form>
+  <p class="search-help">
+    {% if has_anthropic_key %}
+    Each search is ranked by semantic similarity and classified by Claude with a verdict and suggested action per match.
+    {% else %}
+    <em>Set <code>LIBKI_TRIAGE_ANTHROPIC_API_KEY</code> in <code>.env</code> to enable Claude-generated verdicts. Without it, searches still return ranked similarity matches.</em>
+    {% endif %}
+  </p>
+</section>
+
 <section class="status">
   <h2>Harvest status</h2>
   {% if repos %}
@@ -12,6 +33,7 @@
         <th class="num">Issues</th>
         <th class="num">PRs</th>
         <th class="num">Comments</th>
+        <th class="num">Embedded</th>
         <th>Last harvested (UTC)</th>
       </tr>
     </thead>
@@ -23,6 +45,7 @@
         <td class="num">{{ r.issues or 0 }}</td>
         <td class="num">{{ r.prs or 0 }}</td>
         <td class="num">{{ r.comments or 0 }}</td>
+        <td class="num">{{ r.embedded or 0 }}</td>
         <td>{{ r.last_harvested_at or "never" }}</td>
       </tr>
       {% endfor %}
@@ -31,16 +54,5 @@
   {% else %}
   <p class="empty">No repos harvested yet. Run <code>libki-triage harvest</code> to populate the database.</p>
   {% endif %}
-</section>
-
-<section class="coming-soon">
-  <h2>Coming soon</h2>
-  <p>
-    Type a problem description — get the top related issues across all Libki repos, each with a Claude-generated verdict:
-    <em>reported-only</em>, <em>has-open-PR</em>, <em>closed-with-fix</em>, or <em>novel</em>.
-  </p>
-  <p>
-    Eventually: one-click consolidation of duplicate reports into an omnibus issue (with a proposed comment on each sibling linking back — never auto-closed; the maintainer decides).
-  </p>
 </section>
 {% endblock %}

@@ -6,7 +6,7 @@ Harvests issues, PRs, and comments across the Libki org and (eventually) lets yo
 
 ## Status
 
-**v0 — CLI, read-only.** Harvesting works. Semantic search, Claude-powered verdicts, web UI, and omnibus-issue consolidation come in later phases.
+**v0.5 — semantic search + Claude verdicts.** Harvest, embed, search, and classify all work via CLI; web UI renders the search + verdict pipeline. Omnibus-issue consolidation (v2) still pending.
 
 ## Roadmap
 
@@ -37,6 +37,9 @@ The dashboard listens on `127.0.0.1:8000` by default (loopback only) so it's saf
 docker compose run --rm triage harvest
 docker compose run --rm triage harvest --repo Libki/libki-server
 docker compose run --rm triage status
+docker compose run --rm triage embed
+docker compose run --rm triage search "patron can't print multiple copies"
+docker compose run --rm triage classify "patron can't print multiple copies"
 ```
 
 ## Local development
@@ -57,8 +60,11 @@ Environment variables (loaded from `.env` if present):
 
 | Var | Default | Purpose |
 |---|---|---|
-| `LIBKI_TRIAGE_GITHUB_TOKEN` | unset | GitHub PAT for higher rate limits (5000/hr vs 60/hr). Only needs `public_repo` scope. |
+| `LIBKI_TRIAGE_GITHUB_TOKEN` | unset | GitHub PAT for higher rate limits (5000/hr vs 60/hr). Only needs public-repo read access. |
+| `LIBKI_TRIAGE_ANTHROPIC_API_KEY` | unset | Enables `classify` and the /search verdicts. Without it, search returns similarity only. |
 | `LIBKI_TRIAGE_DB_PATH` | `./data/libki-triage.db` | SQLite file location. |
+| `LIBKI_TRIAGE_EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | fastembed model name. |
+| `LIBKI_TRIAGE_CLASSIFICATION_MODEL` | `claude-opus-4-6` | Claude model for verdicts. |
 
 ## Architecture
 
