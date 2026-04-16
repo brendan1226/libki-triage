@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable, Optional
 
 import httpx
 
@@ -25,16 +25,33 @@ def _build_client(token: str | None) -> httpx.Client:
     return httpx.Client(base_url=GITHUB_API, headers=headers, timeout=30.0)
 
 
-def _paginate(client: httpx.Client, url: str, params: dict) -> Iterable[dict]:
+def _paginate(
+    client: httpx.Client,
+    url: str,
+    params: dict,
+    on_page: Optional[Callable[[int, int], None]] = None,
+) -> Iterable[dict]:
     current_params = params
+    page = 0
     while url:
         response = client.get(url, params=current_params)
         response.raise_for_status()
-        for item in response.json():
+        page += 1
+        items = response.json()
+        if on_page is not None:
+            on_page(page, len(items))
+        for item in items:
             yield item
         next_link = response.links.get("next", {}).get("url")
         url = next_link or ""
         current_params = {}  # the `next` URL already carries pagination params
+
+
+def _page_logger(label: str) -> Callable[[int, int], None]:
+    def log(page: int, count: int) -> None:
+        print(f"    {label} page {page}: {count} records", flush=True)
+
+    return log
 
 
 def _issue_number_from_url(issue_url: str) -> int:
@@ -162,6 +179,7 @@ def harvest_repo(db_path: Path, owner: str, name: str, token: str | None) -> dic
                 client,
                 f"/repos/{owner}/{name}/issues",
                 issue_params,
+                on_page=_page_logger("issues"),
             ):
                 upsert_issue(conn, repo_id, issue, new_harvested_at)
                 if "pull_request" in issue:
@@ -177,6 +195,7 @@ def harvest_repo(db_path: Path, owner: str, name: str, token: str | None) -> dic
                 client,
                 f"/repos/{owner}/{name}/issues/comments",
                 comment_params,
+                on_page=_page_logger("comments"),
             ):
                 issue_number = _issue_number_from_url(comment["issue_url"])
                 issue_id = _find_issue_id(conn, repo_id, issue_number)
