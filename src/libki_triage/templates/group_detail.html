@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} — libki-triage{% endblock %}
+
+{% block content %}
+<section>
+  <p class="breadcrumb">
+    <a href="/groups">Groups</a> › {{ group.name }}
+  </p>
+
+  <div class="issue-header">
+    <h2>{{ group.name }}</h2>
+    {% if group.description %}
+    <p class="muted">{{ group.description }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<section>
+  <h3>Members ({{ members|length }})</h3>
+  {% if members %}
+  <table class="issue-table">
+    <thead>
+      <tr>
+        <th>Repo</th>
+        <th class="num">#</th>
+        <th>Title</th>
+        <th>State</th>
+        <th>Type</th>
+        <th>Added</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td class="repo-cell">{{ m.repo_owner }}/{{ m.repo_name }}</td>
+        <td class="num"><a href="{{ m.url }}">{{ m.number }}</a></td>
+        <td><a href="/issues/{{ m.id }}">{{ m.title }}</a></td>
+        <td><span class="tag state-{{ m.state }}">{{ m.state }}</span></td>
+        <td>{% if m.is_pull_request %}PR{% else %}issue{% endif %}</td>
+        <td class="date-cell">{{ m.added_at[:10] }}</td>
+        <td>
+          <form action="/groups/{{ group.id }}/members/{{ m.id }}/remove" method="post" class="inline-form">
+            <button type="submit" class="btn-remove" title="Remove from group">×</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No issues in this group yet. Browse <a href="/issues">all issues</a> and add them here.</p>
+  {% endif %}
+</section>
+
+<section class="recommendation-placeholder">
+  <h3>Group recommendation</h3>
+  <p class="muted">Coming in v1b — Claude will analyze all issues in this group together and suggest a unified fix approach, potentially as an omnibus issue.</p>
+</section>
+{% endblock %}

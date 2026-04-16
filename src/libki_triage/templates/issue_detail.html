@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ issue.repo_owner }}/{{ issue.repo_name }}#{{ issue.number }} — libki-triage{% endblock %}
+
+{% block content %}
+<section>
+  <p class="breadcrumb">
+    <a href="/issues">Issues</a> ›
+    {{ issue.repo_owner }}/{{ issue.repo_name }}#{{ issue.number }}
+  </p>
+
+  <div class="issue-header">
+    <h2>{{ issue.title }}</h2>
+    <div class="issue-meta">
+      <span class="tag state-{{ issue.state }}">{{ issue.state }}</span>
+      <span class="tag">{% if issue.is_pull_request %}PR{% else %}issue{% endif %}</span>
+      {% for label in labels %}
+      <span class="tag label-tag">{{ label }}</span>
+      {% endfor %}
+      <span class="muted">by {{ issue.author or "unknown" }} · {{ issue.created_at[:10] }}</span>
+      <a href="{{ issue.url }}" class="gh-link">View on GitHub ↗</a>
+    </div>
+  </div>
+</section>
+
+<section class="issue-body">
+  <h3>Body</h3>
+  {% if issue.body %}
+  <div class="body-text">{{ issue.body }}</div>
+  {% else %}
+  <p class="empty">(no body)</p>
+  {% endif %}
+</section>
+
+{% if comments %}
+<section>
+  <h3>Comments ({{ comments|length }})</h3>
+  {% for c in comments %}
+  <div class="comment">
+    <div class="comment-header">
+      <strong>{{ c.author or "unknown" }}</strong>
+      <span class="muted">{{ c.created_at[:10] }}</span>
+    </div>
+    <div class="comment-body">{{ c.body }}</div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section>
+  <h3>Groups</h3>
+  {% if memberships %}
+  <div class="group-chips">
+    {% for m in memberships %}
+    <span class="group-chip">
+      <a href="/groups/{{ m.id }}">{{ m.name }}</a>
+      <form action="/groups/{{ m.id }}/members/{{ issue.id }}/remove" method="post" class="inline-form">
+        <button type="submit" class="btn-remove" title="Remove from group">×</button>
+      </form>
+    </span>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Not in any group yet.</p>
+  {% endif %}
+
+  {% if all_groups %}
+  <form action="/issues/{{ issue.id }}/add-to-group" method="post" class="add-to-group-form">
+    <select name="group_id">
+      {% for g in all_groups %}
+      <option value="{{ g.id }}">{{ g.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-sm">Add to group</button>
+  </form>
+  {% else %}
+  <p><a href="/groups">Create a group first</a></p>
+  {% endif %}
+</section>
+
+<section class="recommendation-placeholder">
+  <h3>AI Recommendation</h3>
+  <p class="muted">Coming in v1b — Claude will analyze this issue against the Libki coding guidelines and suggest a fix approach.</p>
+</section>
+{% endblock %}

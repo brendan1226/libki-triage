@@ -7,18 +7,22 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <header>
-    <h1>libki-triage</h1>
-    <p class="tagline">Semantic triage for the <a href="https://github.com/Libki">Libki ecosystem</a>'s GitHub issues.</p>
-  </header>
+  <nav class="topnav">
+    <a href="/" class="nav-brand">libki-triage</a>
+    <div class="nav-links">
+      <a href="/">Dashboard</a>
+      <a href="/issues">Issues</a>
+      <a href="/groups">Groups</a>
+      <a href="/search">Search</a>
+    </div>
+  </nav>
   <main>
     {% block content %}{% endblock %}
   </main>
   <footer>
     <p>
       <a href="https://github.com/brendan1226/libki-triage">Source</a>
-      · v0.0.1
-      · Harvest + status live · Search + Claude verdicts coming soon
+      · v0.5.0
     </p>
   </footer>
 </body>

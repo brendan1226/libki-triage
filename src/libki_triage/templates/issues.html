@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Issues — libki-triage{% endblock %}
+
+{% block content %}
+<section>
+  <h2>All issues ({{ total }})</h2>
+
+  <form class="filter-bar" action="/issues" method="get">
+    <select name="repo">
+      <option value="">All repos</option>
+      {% for r in repo_options %}
+      <option value="{{ r }}" {% if r == filter_repo %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
+    <select name="state">
+      <option value="all" {% if filter_state == 'all' %}selected{% endif %}>All states</option>
+      <option value="open" {% if filter_state == 'open' %}selected{% endif %}>Open</option>
+      <option value="closed" {% if filter_state == 'closed' %}selected{% endif %}>Closed</option>
+    </select>
+    <select name="kind">
+      <option value="all" {% if filter_kind == 'all' %}selected{% endif %}>Issues & PRs</option>
+      <option value="issues" {% if filter_kind == 'issues' %}selected{% endif %}>Issues only</option>
+      <option value="prs" {% if filter_kind == 'prs' %}selected{% endif %}>PRs only</option>
+    </select>
+    <input type="text" name="q" value="{{ filter_q }}" placeholder="Search titles..." />
+    <button type="submit">Filter</button>
+  </form>
+</section>
+
+<section>
+  {% if issues %}
+  <table class="issue-table">
+    <thead>
+      <tr>
+        <th>Repo</th>
+        <th class="num">#</th>
+        <th>Title</th>
+        <th>State</th>
+        <th>Type</th>
+        <th>Author</th>
+        <th>Updated</th>
+        <th>Group</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in issues %}
+      <tr>
+        <td class="repo-cell">{{ i.repo_owner }}/{{ i.repo_name }}</td>
+        <td class="num"><a href="{{ i.url }}">{{ i.number }}</a></td>
+        <td><a href="/issues/{{ i.id }}">{{ i.title }}</a></td>
+        <td><span class="tag state-{{ i.state }}">{{ i.state }}</span></td>
+        <td>{% if i.is_pull_request %}PR{% else %}issue{% endif %}</td>
+        <td>{{ i.author or "" }}</td>
+        <td class="date-cell">{{ i.updated_at[:10] }}</td>
+        <td>
+          {% if groups %}
+          <form action="/issues/{{ i.id }}/add-to-group" method="post" class="inline-form">
+            <select name="group_id">
+              {% for g in groups %}
+              <option value="{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-sm">+</button>
+          </form>
+          {% else %}
+          <a href="/groups" class="muted-link">create group</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}
+    <a href="/issues?repo={{ filter_repo }}&state={{ filter_state }}&kind={{ filter_kind }}&q={{ filter_q }}&page={{ page - 1 }}">← Prev</a>
+    {% endif %}
+    <span>Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="/issues?repo={{ filter_repo }}&state={{ filter_state }}&kind={{ filter_kind }}&q={{ filter_q }}&page={{ page + 1 }}">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p class="empty">No issues match the current filters.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS repos (
@@ -45,25 +45,33 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    issue_id INTEGER NOT NULL REFERENCES issues(id),
+    added_at TEXT NOT NULL,
+    UNIQUE(group_id, issue_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_issues_repo_state ON issues(repo_id, state);
 CREATE INDEX IF NOT EXISTS idx_issues_is_pr ON issues(is_pull_request);
 CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_issue ON group_members(issue_id);
 """
-
-# Indexes that depend on columns added in migrations live in _migrate(),
-# because `CREATE INDEX` on a not-yet-migrated DB errors before the ALTER
-# TABLE has a chance to run.
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
-    """Apply additive column migrations to already-existing DBs.
-
-    The SCHEMA above is authoritative for fresh DBs; this function only runs
-    ALTER TABLE for older DBs whose `user_version` predates the current schema.
-    """
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     if current < 2:
-        # v1 -> v2: add embedding columns. Idempotent under duplicate-column errors.
         for column, coltype in [
             ("embedding", "BLOB"),
             ("embedded_at", "TEXT"),
@@ -72,8 +80,28 @@ def _migrate(conn: sqlite3.Connection) -> None:
             try:
                 conn.execute(f"ALTER TABLE issues ADD COLUMN {column} {coltype}")
             except sqlite3.OperationalError:
-                pass  # column already exists
+                pass
         conn.execute("CREATE INDEX IF NOT EXISTS idx_issues_embed_hash ON issues(embed_text_hash)")
+    if current < 3:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS group_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+                issue_id INTEGER NOT NULL REFERENCES issues(id),
+                added_at TEXT NOT NULL,
+                UNIQUE(group_id, issue_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+            CREATE INDEX IF NOT EXISTS idx_group_members_issue ON group_members(issue_id);
+        """)
+    if current < SCHEMA_VERSION:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
