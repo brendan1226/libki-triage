@@ -48,8 +48,11 @@ CREATE TABLE IF NOT EXISTS comments (
 CREATE INDEX IF NOT EXISTS idx_issues_repo_state ON issues(repo_id, state);
 CREATE INDEX IF NOT EXISTS idx_issues_is_pr ON issues(is_pull_request);
 CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id);
-CREATE INDEX IF NOT EXISTS idx_issues_embed_hash ON issues(embed_text_hash);
 """
+
+# Indexes that depend on columns added in migrations live in _migrate(),
+# because `CREATE INDEX` on a not-yet-migrated DB errors before the ALTER
+# TABLE has a chance to run.
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
