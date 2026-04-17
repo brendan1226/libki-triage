@@ -115,7 +115,15 @@
       <code class="file-path">{{ fix.file_path }}</code>
       <span class="muted">{{ fix.explanation }}</span>
     </div>
-    <textarea class="code-editor" rows="25" spellcheck="false" readonly>{{ fix.fixed_content }}</textarea>
+    {% if fix.diff_lines %}
+    <div class="diff-view">
+      {% for line in fix.diff_lines %}
+      <div class="diff-line diff-{{ line.type }}">{{ line.text }}</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">(no changes detected)</p>
+    {% endif %}
   </div>
   {% endfor %}
 

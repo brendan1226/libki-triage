@@ -1,3 +1,4 @@
+import difflib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,31 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _compute_diff(original: str, modified: str, file_path: str) -> list[dict]:
+    """Compute a unified diff and return annotated line dicts for the template."""
+    orig_lines = original.splitlines(keepends=True)
+    mod_lines = modified.splitlines(keepends=True)
+    diff = difflib.unified_diff(
+        orig_lines, mod_lines,
+        fromfile=f"a/{file_path}",
+        tofile=f"b/{file_path}",
+    )
+    lines: list[dict] = []
+    for raw in diff:
+        text = raw.rstrip("\n")
+        if text.startswith("+++") or text.startswith("---"):
+            lines.append({"type": "header", "text": text})
+        elif text.startswith("@@"):
+            lines.append({"type": "hunk", "text": text})
+        elif text.startswith("+"):
+            lines.append({"type": "add", "text": text})
+        elif text.startswith("-"):
+            lines.append({"type": "del", "text": text})
+        else:
+            lines.append({"type": "ctx", "text": text})
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +277,13 @@ def issue_detail(request: Request, issue_id: int) -> HTMLResponse:
 
     from .codegen import get_stored_fixes
     code_fixes, fix_meta = get_stored_fixes(settings.db_path, issue_id)
+
+    for fix in code_fixes:
+        fix["diff_lines"] = _compute_diff(
+            fix.get("original_content") or "",
+            fix.get("fixed_content") or "",
+            fix.get("file_path", "unknown"),
+        )
 
     return templates.TemplateResponse(
         request=request, name="issue_detail.html",

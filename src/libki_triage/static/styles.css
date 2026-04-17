@@ -626,23 +626,26 @@ footer a:hover { text-decoration: underline; }
   font-weight: 600;
 }
 
-.code-editor {
-  width: 100%;
+.diff-view {
   background: #1a1a2e;
-  color: #c8c8d8;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 1rem;
+  overflow-x: auto;
+  padding: 0.4rem 0;
+  margin-top: 0.3rem;
+}
+.diff-line {
   font-family: ui-monospace, Menlo, Consolas, "Courier New", monospace;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  resize: vertical;
-  tab-size: 4;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  padding: 0 1rem;
+  white-space: pre;
 }
-.code-editor:focus {
-  outline: none;
-  border-color: var(--accent);
-}
+.diff-header { color: #888; font-weight: bold; }
+.diff-hunk { color: var(--accent); background: rgba(54, 163, 217, 0.06); }
+.diff-add { background: rgba(31, 76, 42, 0.35); color: #a1e4a7; }
+.diff-del { background: rgba(74, 31, 31, 0.35); color: #e4a1a1; }
+.diff-ctx { color: #777; }
 
 .fix-actions {
   display: flex;
