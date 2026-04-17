@@ -94,7 +94,14 @@ def serve(
 
     init_db(settings.db_path)
     console.print(f"[cyan]libki-triage serving on http://{host}:{port}[/cyan]")
-    uvicorn.run("libki_triage.web:app", host=host, port=port, reload=reload)
+    uvicorn.run(
+        "libki_triage.web:app",
+        host=host,
+        port=port,
+        reload=reload,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
 
 
 @app.command()
