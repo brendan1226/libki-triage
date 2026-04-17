@@ -18,7 +18,14 @@
         <a href="/issues">Issues</a>
         <a href="/groups">Groups</a>
         <a href="/search">Search</a>
+        <a href="/settings">Settings</a>
       </div>
+      {% if request.state.user %}
+      <div class="nav-user">
+        <span class="user-name">{{ request.state.user.name or request.state.user.email }}</span>
+        <a href="/logout" class="nav-logout">Logout</a>
+      </div>
+      {% endif %}
     </div>
   </nav>
   <main>

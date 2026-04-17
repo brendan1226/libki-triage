@@ -2,6 +2,9 @@
 {% block title %}{{ issue.repo_owner }}/{{ issue.repo_name }}#{{ issue.number }} — libki-triage{% endblock %}
 
 {% block content %}
+{% if error %}
+<div class="error-flash">{{ error }}</div>
+{% endif %}
 <section>
   <p class="breadcrumb">
     <a href="/issues">Issues</a> ›

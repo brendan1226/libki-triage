@@ -25,5 +25,11 @@ class Settings(BaseSettings):
     classification_model: str = "claude-opus-4-6"
     github_fork_owner: str = "brendan1226"
 
+    # Google OAuth (optional — if unset, auth is disabled)
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    session_secret: str = "change-me-in-production"
+    allowed_domains: str = "bywatersolutions.com"
+
 
 settings = Settings()

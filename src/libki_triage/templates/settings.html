@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Settings — libki-triage{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Your settings</h2>
+  <p class="muted">Logged in as <strong>{{ user.name or user.email }}</strong> ({{ user.email }})</p>
+</section>
+
+{% if saved %}
+<div class="success-flash">Settings saved.</div>
+{% endif %}
+
+<section>
+  <h3>GitHub integration</h3>
+  <p class="muted">Configure your personal GitHub token so PRs are created under your account. The token needs <code>repo</code> scope (for forking, branching, committing, and opening PRs).</p>
+
+  <form action="/settings" method="post" class="settings-form">
+    <label>
+      <span>GitHub Personal Access Token</span>
+      <input type="password" name="github_token"
+             placeholder="ghp_... or github_pat_..."
+             value="{{ current_settings.github_token or '' }}" />
+      {% if token_display %}
+      <span class="muted">Current: {{ token_display }}</span>
+      {% endif %}
+    </label>
+
+    <label>
+      <span>Fork owner (GitHub username or org)</span>
+      <input type="text" name="github_fork_owner"
+             placeholder="e.g. brendan1226 or bywatersolutions"
+             value="{{ current_settings.github_fork_owner or '' }}" />
+    </label>
+
+    <button type="submit" class="btn-primary">Save settings</button>
+  </form>
+</section>
+
+<section>
+  <h3>How to create a GitHub token</h3>
+  <ol class="help-list">
+    <li>Go to <a href="https://github.com/settings/tokens?type=beta">GitHub → Settings → Personal Access Tokens → Fine-grained</a></li>
+    <li>Click "Generate new token"</li>
+    <li>Name: <code>libki-triage</code></li>
+    <li>Repository access: "All repositories" or select the Libki repos</li>
+    <li>Permissions: <strong>Contents: Read and write</strong>, <strong>Pull requests: Read and write</strong></li>
+    <li>Generate → copy the token → paste above</li>
+  </ol>
+</section>
+{% endblock %}

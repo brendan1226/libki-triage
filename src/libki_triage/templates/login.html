@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in — libki-triage</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <span class="brand-icon" style="font-size:2.5rem">◇</span>
+      <h1>libki-triage</h1>
+      <p class="muted">Semantic triage for the Libki ecosystem</p>
+      {% if error %}
+      <div class="login-error">{{ error }}</div>
+      {% endif %}
+      <a href="/auth/start" class="login-btn">Sign in with Google</a>
+      <p class="login-note">Restricted to {{ allowed_domains }} accounts.</p>
+    </div>
+  </div>
+</body>
+</html>
