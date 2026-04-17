@@ -20,8 +20,6 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app = FastAPI(title="libki-triage", version="1.0.0")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
-
 # Google OAuth setup (optional — if not configured, auth is disabled)
 oauth = OAuth()
 if settings.google_client_id:
@@ -88,6 +86,10 @@ async def auth_middleware(request: Request, call_next):
 
     request.state.user = dict(row)
     return await call_next(request)
+
+# SessionMiddleware must be added AFTER @app.middleware("http") so it wraps
+# outermost and processes first (sets up request.session before auth reads it).
+app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
 
 
 def _get_user_github_config(request: Request) -> tuple[str, str]:
