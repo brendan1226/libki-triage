@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS repos (
@@ -70,12 +70,33 @@ CREATE TABLE IF NOT EXISTS recommendations (
     UNIQUE(issue_id)
 );
 
+CREATE TABLE IF NOT EXISTS code_fixes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    issue_id INTEGER NOT NULL REFERENCES issues(id),
+    file_path TEXT NOT NULL,
+    original_content TEXT,
+    fixed_content TEXT NOT NULL,
+    explanation TEXT,
+    model TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS code_fix_meta (
+    issue_id INTEGER PRIMARY KEY REFERENCES issues(id),
+    commit_message TEXT NOT NULL,
+    model TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    pr_url TEXT,
+    pr_number INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_issues_repo_state ON issues(repo_id, state);
 CREATE INDEX IF NOT EXISTS idx_issues_is_pr ON issues(is_pull_request);
 CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_issue ON group_members(issue_id);
 CREATE INDEX IF NOT EXISTS idx_recommendations_issue ON recommendations(issue_id);
+CREATE INDEX IF NOT EXISTS idx_code_fixes_issue ON code_fixes(issue_id);
 """
 
 
@@ -83,9 +104,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     if current < 2:
         for column, coltype in [
-            ("embedding", "BLOB"),
-            ("embedded_at", "TEXT"),
-            ("embed_text_hash", "TEXT"),
+            ("embedding", "BLOB"), ("embedded_at", "TEXT"), ("embed_text_hash", "TEXT"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE issues ADD COLUMN {column} {coltype}")
@@ -95,19 +114,13 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if current < 3:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS groups (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
+                id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+                description TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS group_members (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
                 issue_id INTEGER NOT NULL REFERENCES issues(id),
-                added_at TEXT NOT NULL,
-                UNIQUE(group_id, issue_id)
-            );
+                added_at TEXT NOT NULL, UNIQUE(group_id, issue_id));
             CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
             CREATE INDEX IF NOT EXISTS idx_group_members_issue ON group_members(issue_id);
         """)
@@ -116,12 +129,23 @@ def _migrate(conn: sqlite3.Connection) -> None:
             CREATE TABLE IF NOT EXISTS recommendations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 issue_id INTEGER NOT NULL REFERENCES issues(id),
-                model TEXT NOT NULL,
-                recommendation TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                UNIQUE(issue_id)
-            );
+                model TEXT NOT NULL, recommendation TEXT NOT NULL,
+                created_at TEXT NOT NULL, UNIQUE(issue_id));
             CREATE INDEX IF NOT EXISTS idx_recommendations_issue ON recommendations(issue_id);
+        """)
+    if current < 5:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS code_fixes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                issue_id INTEGER NOT NULL REFERENCES issues(id),
+                file_path TEXT NOT NULL, original_content TEXT,
+                fixed_content TEXT NOT NULL, explanation TEXT,
+                model TEXT NOT NULL, created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS code_fix_meta (
+                issue_id INTEGER PRIMARY KEY REFERENCES issues(id),
+                commit_message TEXT NOT NULL, model TEXT NOT NULL,
+                created_at TEXT NOT NULL, pr_url TEXT, pr_number INTEGER);
+            CREATE INDEX IF NOT EXISTS idx_code_fixes_issue ON code_fixes(issue_id);
         """)
     if current < SCHEMA_VERSION:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

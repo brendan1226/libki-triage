@@ -249,6 +249,9 @@ def issue_detail(request: Request, issue_id: int) -> HTMLResponse:
         rec = rec_obj.model_dump()
         rec_meta = {"model": rec_model, "created_at": rec_created}
 
+    from .codegen import get_stored_fixes
+    code_fixes, fix_meta = get_stored_fixes(settings.db_path, issue_id)
+
     return templates.TemplateResponse(
         request=request, name="issue_detail.html",
         context={
@@ -259,7 +262,10 @@ def issue_detail(request: Request, issue_id: int) -> HTMLResponse:
             "all_groups": [dict(g) for g in all_groups],
             "rec": rec,
             "rec_meta": rec_meta,
+            "code_fixes": code_fixes,
+            "fix_meta": fix_meta,
             "has_anthropic_key": bool(settings.anthropic_api_key),
+            "has_github_token": bool(settings.github_token),
         },
     )
 
@@ -367,6 +373,31 @@ def generate_issue_recommendation(issue_id: int) -> RedirectResponse:
     generate_recommendation(
         settings.db_path, issue_id,
         settings.anthropic_api_key, settings.classification_model,
+    )
+    return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
+
+
+@app.post("/issues/{issue_id}/generate-fix")
+def generate_fix(issue_id: int) -> RedirectResponse:
+    if not settings.anthropic_api_key or not settings.github_token:
+        return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
+    from .codegen import generate_code_fix
+    generate_code_fix(
+        settings.db_path, issue_id,
+        settings.anthropic_api_key, settings.github_token,
+        settings.classification_model,
+    )
+    return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
+
+
+@app.post("/issues/{issue_id}/create-pr")
+def create_pr(issue_id: int) -> RedirectResponse:
+    if not settings.github_token:
+        return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
+    from .codegen import create_pr_from_fixes
+    create_pr_from_fixes(
+        settings.db_path, issue_id,
+        settings.github_token, settings.github_fork_owner,
     )
     return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
 

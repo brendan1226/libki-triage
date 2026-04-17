@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     db_path: Path = Path("./data/libki-triage.db")
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     classification_model: str = "claude-opus-4-6"
+    github_fork_owner: str = "brendan1226"
 
 
 settings = Settings()
