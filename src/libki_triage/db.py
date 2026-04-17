@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS repos (
@@ -61,11 +61,21 @@ CREATE TABLE IF NOT EXISTS group_members (
     UNIQUE(group_id, issue_id)
 );
 
+CREATE TABLE IF NOT EXISTS recommendations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    issue_id INTEGER NOT NULL REFERENCES issues(id),
+    model TEXT NOT NULL,
+    recommendation TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(issue_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_issues_repo_state ON issues(repo_id, state);
 CREATE INDEX IF NOT EXISTS idx_issues_is_pr ON issues(is_pull_request);
 CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_issue ON group_members(issue_id);
+CREATE INDEX IF NOT EXISTS idx_recommendations_issue ON recommendations(issue_id);
 """
 
 
@@ -100,6 +110,18 @@ def _migrate(conn: sqlite3.Connection) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
             CREATE INDEX IF NOT EXISTS idx_group_members_issue ON group_members(issue_id);
+        """)
+    if current < 4:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS recommendations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                issue_id INTEGER NOT NULL REFERENCES issues(id),
+                model TEXT NOT NULL,
+                recommendation TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(issue_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_recommendations_issue ON recommendations(issue_id);
         """)
     if current < SCHEMA_VERSION:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

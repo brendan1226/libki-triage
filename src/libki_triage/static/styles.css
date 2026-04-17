@@ -496,7 +496,98 @@ footer a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 
-/* Recommendation placeholder */
+/* Recommendation section */
+.recommendation-section { margin-top: 2rem; }
+.recommendation-section h3 { color: var(--accent); }
+
+.rec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.rec-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.rec-complexity {
+  padding: 0.2rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.complexity-easy { background: var(--green); color: var(--green-fg); }
+.complexity-medium { background: #4c3b1f; color: #e4c4a1; }
+.complexity-hard { background: var(--red); color: var(--red-fg); }
+.rec-meta { margin-left: auto; font-size: 0.82rem; }
+
+.rec-field { margin-bottom: 1rem; }
+.rec-field strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.rec-field p { margin: 0; line-height: 1.5; }
+.rec-field ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.92rem;
+}
+
+.rec-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 600px) {
+  .rec-cols { grid-template-columns: 1fr; }
+}
+
+.guideline-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.guideline-chip {
+  background: var(--border);
+  color: var(--fg);
+  padding: 0.15rem 0.55rem;
+  border-radius: 3px;
+  font-size: 0.82rem;
+}
+
+.rec-actions { margin-top: 1rem; }
+
+.btn-primary {
+  padding: 0.6rem 1.25rem;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.btn-primary:hover { filter: brightness(1.1); }
+
+.btn-secondary {
+  padding: 0.45rem 1rem;
+  background: var(--border);
+  color: var(--fg);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+.btn-secondary:hover { background: var(--accent); color: var(--bg); }
+
+/* Recommendation placeholder in group detail */
 .recommendation-placeholder {
   margin-top: 2rem;
   border: 1px dashed var(--border);

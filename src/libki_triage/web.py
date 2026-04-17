@@ -240,6 +240,15 @@ def issue_detail(request: Request, issue_id: int) -> HTMLResponse:
 
     labels = json.loads(row["labels"]) if row["labels"] else []
 
+    from .recommend import get_stored_recommendation
+    stored = get_stored_recommendation(settings.db_path, issue_id)
+    rec = None
+    rec_meta = None
+    if stored is not None:
+        rec_obj, rec_model, rec_created = stored
+        rec = rec_obj.model_dump()
+        rec_meta = {"model": rec_model, "created_at": rec_created}
+
     return templates.TemplateResponse(
         request=request, name="issue_detail.html",
         context={
@@ -248,6 +257,9 @@ def issue_detail(request: Request, issue_id: int) -> HTMLResponse:
             "comments": [dict(c) for c in issue_comments],
             "memberships": [dict(m) for m in memberships],
             "all_groups": [dict(g) for g in all_groups],
+            "rec": rec,
+            "rec_meta": rec_meta,
+            "has_anthropic_key": bool(settings.anthropic_api_key),
         },
     )
 
@@ -345,6 +357,18 @@ def remove_group_member(group_id: int, issue_id: int) -> RedirectResponse:
         )
         conn.execute("UPDATE groups SET updated_at = ? WHERE id = ?", (now, group_id))
     return RedirectResponse(url=f"/groups/{group_id}", status_code=303)
+
+
+@app.post("/issues/{issue_id}/recommend")
+def generate_issue_recommendation(issue_id: int) -> RedirectResponse:
+    if not settings.anthropic_api_key:
+        return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
+    from .recommend import generate_recommendation
+    generate_recommendation(
+        settings.db_path, issue_id,
+        settings.anthropic_api_key, settings.classification_model,
+    )
+    return RedirectResponse(url=f"/issues/{issue_id}", status_code=303)
 
 
 @app.post("/issues/{issue_id}/add-to-group")
