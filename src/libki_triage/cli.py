@@ -17,6 +17,83 @@ console = Console()
 
 
 @app.command()
+def export(
+    output: str = typer.Option("libki-triage-export.json", "--output", "-o", help="Output JSON file."),
+    include_embeddings: bool = typer.Option(False, "--include-embeddings", help="Include raw embedding vectors."),
+) -> None:
+    """Export all issues, comments, and AI-generated content to a single JSON file."""
+    import json
+    from datetime import datetime, timezone
+
+    init_db(settings.db_path)
+
+    with connect(settings.db_path) as conn:
+        repos = [dict(r) for r in conn.execute("SELECT * FROM repos").fetchall()]
+        issues = [dict(r) for r in conn.execute("SELECT * FROM issues ORDER BY repo_id, number").fetchall()]
+        comments = [dict(r) for r in conn.execute("SELECT * FROM comments ORDER BY issue_id, created_at").fetchall()]
+        recs_rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='recommendations'").fetchone()
+        recs = [dict(r) for r in conn.execute("SELECT * FROM recommendations").fetchall()] if recs_rows else []
+        fixes_rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='code_fixes'").fetchone()
+        code_fixes = [dict(r) for r in conn.execute("SELECT * FROM code_fixes").fetchall()] if fixes_rows else []
+        meta_rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='code_fix_meta'").fetchone()
+        fix_meta = [dict(r) for r in conn.execute("SELECT * FROM code_fix_meta").fetchall()] if meta_rows else []
+        groups = [dict(r) for r in conn.execute("SELECT * FROM groups").fetchall()]
+        group_members = [dict(r) for r in conn.execute("SELECT * FROM group_members").fetchall()]
+
+    repo_by_id = {r["id"]: r for r in repos}
+
+    comments_by_issue: dict[int, list[dict]] = {}
+    for c in comments:
+        comments_by_issue.setdefault(c["issue_id"], []).append(c)
+
+    recs_by_issue = {r["issue_id"]: r for r in recs}
+    fixes_by_issue: dict[int, list[dict]] = {}
+    for f in code_fixes:
+        fixes_by_issue.setdefault(f["issue_id"], []).append(f)
+    fix_meta_by_issue = {f["issue_id"]: f for f in fix_meta}
+
+    enriched = []
+    for i in issues:
+        internal_id = i["id"]
+        if not include_embeddings:
+            i.pop("embedding", None)
+        repo = repo_by_id.get(i["repo_id"], {})
+        i["repo_owner"] = repo.get("owner")
+        i["repo_name"] = repo.get("name")
+        i["comments"] = comments_by_issue.get(internal_id, [])
+        rec = recs_by_issue.get(internal_id)
+        if rec:
+            try:
+                rec["recommendation"] = json.loads(rec["recommendation"])
+            except Exception:
+                pass
+        i["ai_recommendation"] = rec
+        i["ai_code_fixes"] = fixes_by_issue.get(internal_id, [])
+        i["ai_fix_meta"] = fix_meta_by_issue.get(internal_id)
+        enriched.append(i)
+
+    export_data = {
+        "source": "libki-triage",
+        "github_org": "Libki",
+        "repos": repos,
+        "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "total_issues": len(enriched),
+        "total_comments": len(comments),
+        "issues": enriched,
+        "groups": [
+            {**g, "member_issue_ids": [m["issue_id"] for m in group_members if m["group_id"] == g["id"]]}
+            for g in groups
+        ],
+    }
+
+    with open(output, "w") as f:
+        json.dump(export_data, f, indent=2, default=str)
+
+    size_mb = len(json.dumps(export_data, default=str)) / 1024 / 1024
+    console.print(f"[green]Exported {len(enriched)} issues, {len(comments)} comments to {output} ({size_mb:.1f} MB)[/green]")
+
+
+@app.command()
 def harvest(
     repo: str = typer.Option(
         None,
